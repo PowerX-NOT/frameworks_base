@@ -340,17 +340,24 @@ public class UdfpsController implements DozeReceiver, Dumpable {
                     tryAodSendFingerUp();
                 });
             } else {
-                boolean acquiredVendor = acquiredInfo == FINGERPRINT_ACQUIRED_VENDOR;
-                final boolean isAodEnabled = mAmbientDisplayConfiguration.alwaysOnEnabled(UserHandle.USER_CURRENT);
-                final boolean isShowingAmbientDisplay = mStatusBarStateController.isDozing() && mScreenOn;
+                mFgExecutor.execute(() -> {
+                    boolean acquiredVendor = acquiredInfo == FINGERPRINT_ACQUIRED_VENDOR;
+                    final boolean isAodEnabled = mAmbientDisplayConfiguration.alwaysOnEnabled(UserHandle.USER_CURRENT);
+                    final boolean isShowingAmbientDisplay = mStatusBarStateController.isDozing() && mScreenOn;
 
-                if (acquiredVendor && ((mScreenOffFod && !mScreenOn) || (isAodEnabled && isShowingAmbientDisplay))) {
-                    if (vendorCode == mUdfpsVendorCode) {
-                        mPowerManager.wakeUp(mSystemClock.uptimeMillis(),
-                                PowerManager.WAKE_REASON_GESTURE, TAG);
-                        onAodInterrupt(0, 0, 0, 0);
+                    if (acquiredVendor && ((mScreenOffFod && !mScreenOn) || (isAodEnabled && isShowingAmbientDisplay))) {
+                        if (vendorCode == mUdfpsVendorCode) {
+                            if (mContext.getResources().getBoolean(R.bool.config_pulseOnFingerDown)) {
+                                mContext.sendBroadcastAsUser(new Intent(PULSE_ACTION),
+                                        new UserHandle(UserHandle.USER_CURRENT));
+                            } else {
+                                mPowerManager.wakeUp(mSystemClock.uptimeMillis(),
+                                        PowerManager.WAKE_REASON_GESTURE, TAG);
+                            }
+                            onAodInterrupt(0, 0, 0, 0);
+                        }
                     }
-                }
+                });
             }
         }
 
